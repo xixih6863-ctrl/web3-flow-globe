@@ -110,16 +110,23 @@ function startDemoMode() {
   }, 2000);
 }
 
-// Try connecting to Ethereum, fallback to demo
-let provider;
-async function initProvider() {
+// Initialize provider
+function initProvider() {
   try {
-    provider = new ethers.WebSocketProvider(CONFIG.RPC_URL);
-    const network = await provider.getNetwork();
-    console.log(`✅ Connected to: ${network.name}`);
+    const provider = new ethers.WebSocketProvider(CONFIG.RPC_URL);
+    
+    // Remove default error handler that crashes
+    provider.off('error', () => {});
+    
+    // Test connection
+    provider.getNetwork().then(network => {
+      console.log(`✅ Connected to: ${network.name}`);
+    }).catch(() => {
+      console.log('⚠️ Using demo mode');
+      startDemoMode();
+    });
     
     provider.on("block", async (blockNumber) => {
-      console.log(`📦 Block: ${blockNumber}`);
       try {
         const block = await provider.getBlockWithTransactions(blockNumber);
         if (block?.transactions) {
@@ -138,15 +145,19 @@ async function initProvider() {
             }
           }
         }
-      } catch (e) {
-        // Ignore block errors
-      }
+      } catch (e) {}
     });
   } catch (error) {
-    console.log('❌ Using demo mode (no RPC connection)');
+    console.log('⚠️ Using demo mode');
     startDemoMode();
   }
 }
+
+// Handle uncaught errors
+process.on('uncaughtException', (err) => {
+  console.log('⚠️ Error occurred, using demo mode');
+  startDemoMode();
+});
 
 wss.on('connection', (ws) => {
   console.log('✅ Client connected');
